@@ -1,0 +1,96 @@
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <DHT.h>
+
+// LCD setup
+LiquidCrystal_I2C lcd(0x27, 16, 2);  // Set the LCD address to 0x27 for a 16 chars and 2 line display
+
+// MQ135 setup
+const int MQ135Pin = A0;
+const int BuzzerPin = 8;
+
+// DHT setup
+#define DHTPIN 7          // Define pin 7 for the DHT sensor
+#define DHTTYPE DHT11     // Define DHT sensor type (DHT11)
+DHT dht(DHTPIN, DHTTYPE);  // Initialize DHT sensor
+
+unsigned long previousMillis = 0;  // Store the last time the display was updated
+const long interval = 2000;        // Interval to change display (2 seconds)
+
+void setup() {
+  Serial.begin(9600);
+  lcd.init();                      // Initialize LCD
+  lcd.backlight();                 // Turn on backlight
+
+  pinMode(BuzzerPin, OUTPUT);      // Set Buzzer pin as output
+
+  dht.begin();                    // Initialize DHT sensor
+}
+
+void loop() {
+  unsigned long currentMillis = millis();
+  static bool showAirQuality = true;  // Flag to alternate between air quality and temp/humidity
+
+  // Read the MQ135 sensor
+  float sensorVoltage = analogRead(MQ135Pin) * (5.0 / 1024.0); // Convert the analog reading (0 - 1023) to a voltage (0 - 5V)
+  float sensorValue = (sensorVoltage - 0.25) / 0.04; // Convert voltage to ppm (Parts Per Million)
+
+  // Read the temperature and humidity from the DHT11 sensor
+  float temperature = dht.readTemperature();  // Temperature in Celsius
+  float humidity = dht.readHumidity();        // Humidity in percentage
+
+  // Check if the DHT readings are valid
+  if (isnan(temperature) || isnan(humidity)) {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("DHT Read Fail");
+    delay(2000);
+    return; // Skip the rest of the loop if DHT reading fails
+  }
+
+  // Check if it's time to update the display
+  if (currentMillis - previousMillis >= interval) {
+    previousMillis = currentMillis;  // Save the last time the display was updated
+    showAirQuality = !showAirQuality;  // Toggle the flag to switch between air quality and temp/humidity
+  }
+
+  if (showAirQuality) {
+    // Display air quality on the LCD
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Air.Qlt:");
+    lcd.print(sensorValue);
+    lcd.print("ppm");
+
+    // Display air quality level
+    lcd.setCursor(0, 1);
+    if (sensorValue < 19) {
+      lcd.print("Good air quality");
+    } else if (sensorValue < 23) {
+      lcd.print("Moderate quality");
+    } else if (sensorValue >= 23) {
+      lcd.print("Poor air quality");
+    }
+
+    // Activate buzzer if air quality is poor
+    if (sensorValue > 23) {
+      digitalWrite(BuzzerPin, HIGH);
+    } else {
+      digitalWrite(BuzzerPin, LOW);
+    }
+  } else {
+    // Display temperature and humidity on the LCD
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Temp:");
+    lcd.print(temperature);
+    lcd.print("C");
+
+    lcd.setCursor(0, 1);
+    lcd.print("Humid:");
+    lcd.print(humidity);
+    lcd.print("%");
+  }
+
+  delay(100);  // Small delay to allow for switching between displays
+}
