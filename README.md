@@ -70,6 +70,3 @@ The Air Pollution Monitoring System is an IoT-based project designed to monitor 
 
 **Aditya Sachin Patil**
 
-Email: [adityapatil8811@gmail.com](mailto:adityapatil8811@gmail.com)
-
-GitHub: https://github.com/yourusername
